@@ -16,8 +16,12 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/joho/godotenv"
 	"golang.org/x/image/draw"
 )
+
+// Global variable for Roblox cookie
+var robloxCookie string
 
 // Data structures matching the Luau JSON output
 type Vector2 struct {
@@ -355,14 +359,28 @@ func ExtractAssetID(imageURL string) string {
 func DownloadAsset(assetID, outputDir string) (string, error) {
 	url := fmt.Sprintf("https://assetdelivery.roblox.com/v1/asset?id=%s", assetID)
 
-	resp, err := http.Get(url)
+	client := &http.Client{}
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return "", fmt.Errorf("failed to create request for asset %s: %w", assetID, err)
+	}
+
+	// Add Roblox cookie if available
+	if robloxCookie != "" {
+		req.AddCookie(&http.Cookie{
+			Name:  ".ROBLOSECURITY",
+			Value: robloxCookie,
+		})
+	}
+
+	resp, err := client.Do(req)
 	if err != nil {
 		return "", fmt.Errorf("failed to download asset %s: %w", assetID, err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("failed to download asset %s: status %d", assetID, resp.StatusCode)
+		return "", fmt.Errorf("failed to download asset %s: status %d (check ROBLOSECURITY in .env file)", assetID, resp.StatusCode)
 	}
 
 	contentType := resp.Header.Get("Content-Type")
@@ -372,8 +390,6 @@ func DownloadAsset(assetID, outputDir string) (string, error) {
 		ext = ".png"
 	} else if strings.Contains(contentType, "image/jpeg") || strings.Contains(contentType, "image/jpg") {
 		ext = ".jpg"
-	} else {
-		fmt.Printf("Warning: Asset %s has content type %s\n", assetID, contentType)
 	}
 
 	os.MkdirAll(outputDir, 0755)
@@ -970,6 +986,18 @@ func SaveChannelDebugImages(img *image.NRGBA, baseName string) error {
 }
 
 func main() {
+	// Load .env file
+	err := godotenv.Load()
+	if err != nil {
+		fmt.Println("Warning: .env file not found, continuing without it")
+	}
+
+	// Read Roblox cookie from environment (loaded from .env)
+	robloxCookie = os.Getenv("ROBLOSECURITY")
+	if robloxCookie == "" {
+		fmt.Println("Warning: ROBLOSECURITY not set in .env file. Asset downloads may fail.")
+	}
+
 	debugFlag := flag.Bool("debug", false, "Save separate R, G, B, A channel images for debugging")
 	flag.Parse()
 
