@@ -24,7 +24,8 @@ import (
 var robloxCookie string
 
 const envTemplate = `# Roblox GUI Baker Environment Configuration
-# 
+# IS REQUIRED FOR DOWNLOADING IMAGES FROM ROBLOX ASSET DELIVERY 
+#
 # To get your ROBLOSECURITY token:
 # 1. Open your browser and log into Roblox
 # 2. Open Developer Tools (F12)
@@ -899,66 +900,102 @@ func RenderElementRecursive(canvas *image.NRGBA, element *GuiElement, bounds Bou
 	}
 }
 
-// Update BakeToImage signature
+// Add this new function for high-quality downscaling
+func DownscaleImage(src *image.NRGBA, targetWidth, targetHeight int) *image.NRGBA {
+	dst := image.NewNRGBA(image.Rect(0, 0, targetWidth, targetHeight))
+	draw.CatmullRom.Scale(dst, dst.Bounds(), src, src.Bounds(), draw.Over, nil)
+	return dst
+}
+
+// Update BakeToImage function
 func BakeToImage(hierarchy *ElementHierarchy, outputPath string, assetCache map[string]image.Image) (*image.NRGBA, error) {
 	bounds := CalculateOverallBounds(hierarchy)
-	width := int(math.Ceil(bounds.Width()))
-	height := int(math.Ceil(bounds.Height()))
+	originalWidth := int(math.Ceil(bounds.Width()))
+	originalHeight := int(math.Ceil(bounds.Height()))
 
-	fmt.Printf("Canvas size: %dx%d\n", width, height)
+	fmt.Printf("Original size: %dx%d\n", originalWidth, originalHeight)
 
-	scale := 1.0
-	maxDim := math.Max(float64(width), float64(height))
-	if maxDim > 1024 {
-		scale = 1024 / maxDim
-		width = int(float64(width) * scale)
-		height = int(float64(height) * scale)
-		fmt.Printf("Scaled down to: %dx%d (scale: %.3f)\n", width, height, scale)
+	// SUPERSAMPLING: Render at 3x resolution for better quality
+	supersampleScale := 3.0
+	renderWidth := originalWidth * int(supersampleScale)
+	renderHeight := originalHeight * int(supersampleScale)
 
-		// Scale all elements
-		var scaleElement func(*GuiElement)
-		scaleElement = func(elem *GuiElement) {
-			elem.AbsolutePosition.X = (elem.AbsolutePosition.X - bounds.MinX) * scale
-			elem.AbsolutePosition.Y = (elem.AbsolutePosition.Y - bounds.MinY) * scale
-			elem.AbsoluteSize.X *= scale
-			elem.AbsoluteSize.Y *= scale
-			if elem.UIStroke != nil {
-				elem.UIStroke.Thickness *= scale
-			}
-			if elem.UICorner != nil {
-				elem.UICorner.CornerRadius.Offset *= scale
-			}
-			for _, child := range elem.Children {
-				scaleElement(child)
-			}
-		}
-		for _, root := range hierarchy.Roots {
-			scaleElement(root)
-		}
-		bounds.MinX = 0
-		bounds.MinY = 0
+	fmt.Printf("Rendering at: %dx%d (3x supersampling)\n", renderWidth, renderHeight)
+
+	// Check if we need to scale down due to size limits
+	finalScale := supersampleScale
+	maxDim := math.Max(float64(renderWidth), float64(renderHeight))
+	maxAllowedDim := 4096.0 // Reasonable max for rendering
+
+	if maxDim > maxAllowedDim {
+		// Need to reduce the supersample scale
+		reductionScale := maxAllowedDim / maxDim
+		finalScale = supersampleScale * reductionScale
+		renderWidth = int(float64(originalWidth) * finalScale)
+		renderHeight = int(float64(originalHeight) * finalScale)
+		fmt.Printf("⚠ Large canvas, reducing to: %dx%d (%.2fx scale)\n", renderWidth, renderHeight, finalScale)
 	}
 
-	canvas := image.NewNRGBA(image.Rect(0, 0, width, height))
+	// Scale all elements for rendering
+	var scaleElement func(*GuiElement)
+	scaleElement = func(elem *GuiElement) {
+		elem.AbsolutePosition.X = (elem.AbsolutePosition.X - bounds.MinX) * finalScale
+		elem.AbsolutePosition.Y = (elem.AbsolutePosition.Y - bounds.MinY) * finalScale
+		elem.AbsoluteSize.X *= finalScale
+		elem.AbsoluteSize.Y *= finalScale
+		if elem.UIStroke != nil {
+			elem.UIStroke.Thickness *= finalScale
+		}
+		if elem.UICorner != nil {
+			elem.UICorner.CornerRadius.Offset *= finalScale
+		}
+		for _, child := range elem.Children {
+			scaleElement(child)
+		}
+	}
+
+	for _, root := range hierarchy.Roots {
+		scaleElement(root)
+	}
+
+	// Reset bounds after scaling
+	bounds.MinX = 0
+	bounds.MinY = 0
+	bounds.MaxX = float64(renderWidth)
+	bounds.MaxY = float64(renderHeight)
+
+	// Render at high resolution
+	fmt.Println("🎨 Rendering high-resolution canvas...")
+	canvas := image.NewNRGBA(image.Rect(0, 0, renderWidth, renderHeight))
 
 	// Render all root elements and their children
 	for _, root := range hierarchy.Roots {
 		RenderElementRecursive(canvas, root, bounds, assetCache, nil)
 	}
 
+	// Downscale to final size
+	var finalCanvas *image.NRGBA
+	if finalScale != 1.0 {
+		fmt.Printf("📐 Downscaling to final size: %dx%d...\n", originalWidth, originalHeight)
+		finalCanvas = DownscaleImage(canvas, originalWidth, originalHeight)
+	} else {
+		finalCanvas = canvas
+	}
+
+	// Save the final image
 	outFile, err := os.Create(outputPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create output file: %w", err)
 	}
 	defer outFile.Close()
 
-	err = png.Encode(outFile, canvas)
+	err = png.Encode(outFile, finalCanvas)
 	if err != nil {
 		return nil, fmt.Errorf("failed to encode PNG: %w", err)
 	}
 
-	fmt.Printf("\n✓ Baked image saved to: %s\n", outputPath)
-	return canvas, nil
+	fmt.Printf("\n✓ Baked image saved to: %s (%dx%d)\n", outputPath, originalWidth, originalHeight)
+	return finalCanvas, nil
 }
 
 func SaveChannelDebugImages(img *image.NRGBA, baseName string) error {
