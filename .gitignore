@@ -1,3 +1,4 @@
 *.png
 assets/
 .env
+bin/

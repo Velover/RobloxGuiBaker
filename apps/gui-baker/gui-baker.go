@@ -23,6 +23,18 @@ import (
 // Global variable for Roblox cookie
 var robloxCookie string
 
+const envTemplate = `# Roblox GUI Baker Environment Configuration
+# 
+# To get your ROBLOSECURITY token:
+# 1. Open your browser and log into Roblox
+# 2. Open Developer Tools (F12)
+# 3. Go to Application tab > Cookies > https://www.roblox.com
+# 4. Find the .ROBLOSECURITY cookie and copy its value
+# 5. Paste it below (without quotes)
+
+ROBLOSECURITY=your_roblox_security_token_here
+`
+
 // Data structures matching the Luau JSON output
 type Vector2 struct {
 	X float64 `json:"X"`
@@ -353,6 +365,19 @@ func ExtractAssetID(imageURL string) string {
 		return matches[1]
 	}
 	return ""
+}
+
+// CreateEnvTemplate creates a .env.example file if it doesn't exist
+func CreateEnvTemplate() {
+	if _, err := os.Stat(".env"); os.IsNotExist(err) {
+		fmt.Println("📝 .env file not found, creating template...")
+		err := os.WriteFile(".env", []byte(envTemplate), 0644)
+		if err != nil {
+			fmt.Printf("Warning: Could not create .env template: %v\n", err)
+		} else {
+			fmt.Println("✓ Created .env file. Please add your ROBLOSECURITY token.")
+		}
+	}
 }
 
 // DownloadAsset downloads an asset from Roblox asset delivery
@@ -986,54 +1011,68 @@ func SaveChannelDebugImages(img *image.NRGBA, baseName string) error {
 }
 
 func main() {
+	// Create .env template if it doesn't exist
+	CreateEnvTemplate()
+
 	// Load .env file
 	err := godotenv.Load()
 	if err != nil {
-		fmt.Println("Warning: .env file not found, continuing without it")
+		fmt.Println("⚠ Warning: Could not load .env file")
 	}
 
-	// Read Roblox cookie from environment (loaded from .env)
+	// Read Roblox cookie from environment
 	robloxCookie = os.Getenv("ROBLOSECURITY")
-	if robloxCookie == "" {
-		fmt.Println("Warning: ROBLOSECURITY not set in .env file. Asset downloads may fail.")
+	if robloxCookie == "" || robloxCookie == "your_roblox_security_token_here" {
+		fmt.Println("⚠ Warning: ROBLOSECURITY not set. Image asset downloads will fail.")
+		fmt.Println("   Please edit .env file and add your Roblox security token.")
 	}
 
+	// Define flags
 	debugFlag := flag.Bool("debug", false, "Save separate R, G, B, A channel images for debugging")
+	inputFile := flag.String("input", "input.json", "Input JSON file")
+	outputDir := flag.String("assets", "assets", "Directory to store downloaded assets")
+	outputFile := flag.String("output", "baked_gui.png", "Output PNG file")
+
+	flag.Usage = func() {
+		fmt.Fprintf(os.Stderr, "Roblox GUI Baker - Bakes Roblox GUI elements into a single PNG\n\n")
+		fmt.Fprintf(os.Stderr, "Usage: %s [options]\n\n", os.Args[0])
+		fmt.Fprintf(os.Stderr, "Options:\n")
+		flag.PrintDefaults()
+		fmt.Fprintf(os.Stderr, "\nExample:\n")
+		fmt.Fprintf(os.Stderr, "  %s\n", os.Args[0])
+		fmt.Fprintf(os.Stderr, "  %s --input data.json --output result.png\n", os.Args[0])
+	}
+
 	flag.Parse()
 
-	args := flag.Args()
-	if len(args) < 1 {
-		fmt.Println("Usage: go run main.go [--debug] <json_file> [output_dir]")
-		os.Exit(1)
-	}
+	fmt.Println("🎨 Roblox GUI Baker")
+	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+	fmt.Printf("📂 Input:  %s\n", *inputFile)
+	fmt.Printf("📁 Assets: %s/\n", *outputDir)
+	fmt.Printf("💾 Output: %s\n\n", *outputFile)
 
-	jsonFile := args[0]
-	outputDir := "assets"
-
-	if len(args) >= 2 {
-		outputDir = args[1]
-	}
-
-	data, err := os.ReadFile(jsonFile)
+	// Read JSON file
+	data, err := os.ReadFile(*inputFile)
 	if err != nil {
-		fmt.Printf("Error reading JSON file: %v\n", err)
+		fmt.Printf("❌ Error reading JSON file: %v\n", err)
 		os.Exit(1)
 	}
 
 	var elements []GuiElement
 	err = json.Unmarshal(data, &elements)
 	if err != nil {
-		fmt.Printf("Error parsing JSON: %v\n", err)
+		fmt.Printf("❌ Error parsing JSON: %v\n", err)
 		os.Exit(1)
 	}
 
-	fmt.Printf("Parsed %d GUI elements\n\n", len(elements))
+	fmt.Printf("✓ Parsed %d GUI elements\n\n", len(elements))
 
 	// Build hierarchy
 	hierarchy := BuildHierarchy(elements)
-	fmt.Printf("Built hierarchy: %d root elements\n", len(hierarchy.Roots))
+	fmt.Printf("✓ Built hierarchy: %d root elements\n\n", len(hierarchy.Roots))
 
 	// Download assets
+	fmt.Println("📥 Downloading assets...")
 	downloadedAssets := make(map[string]bool)
 	assetCache := make(map[string]image.Image)
 
@@ -1041,15 +1080,18 @@ func main() {
 		if element.Image != nil && *element.Image != "" {
 			assetID := ExtractAssetID(*element.Image)
 			if assetID != "" && !downloadedAssets[assetID] {
-				fmt.Printf("Downloading image asset: %s\n", assetID)
-				assetPath, err := DownloadAsset(assetID, outputDir)
+				fmt.Printf("  → %s... ", assetID)
+				assetPath, err := DownloadAsset(assetID, *outputDir)
 				if err != nil {
-					fmt.Printf("Error: %v\n", err)
+					fmt.Printf("❌ %v\n", err)
 				} else {
 					downloadedAssets[assetID] = true
 					if imgFile, err := os.Open(assetPath); err == nil {
 						if img, err := png.Decode(imgFile); err == nil {
 							assetCache[assetID] = img
+							fmt.Println("✓")
+						} else {
+							fmt.Printf("⚠ Could not decode\n")
 						}
 						imgFile.Close()
 					}
@@ -1060,18 +1102,21 @@ func main() {
 
 	fmt.Printf("\n✓ Downloaded %d unique assets\n\n", len(downloadedAssets))
 
-	outputPath := "baked_gui.png"
-	canvas, err := BakeToImage(hierarchy, outputPath, assetCache)
+	// Bake to image
+	fmt.Println("🎨 Baking GUI...")
+	canvas, err := BakeToImage(hierarchy, *outputFile, assetCache)
 	if err != nil {
-		fmt.Printf("Error baking image: %v\n", err)
+		fmt.Printf("❌ Error baking image: %v\n", err)
 		os.Exit(1)
 	}
 
 	if *debugFlag {
 		fmt.Println("\n🔍 Debug mode: Saving channel images...")
-		err = SaveChannelDebugImages(canvas, outputPath)
+		err = SaveChannelDebugImages(canvas, *outputFile)
 		if err != nil {
-			fmt.Printf("Error saving debug images: %v\n", err)
+			fmt.Printf("⚠ Error saving debug images: %v\n", err)
 		}
 	}
+
+	fmt.Println("\n✅ Done!")
 }
