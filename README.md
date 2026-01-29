@@ -5,12 +5,12 @@ If you even hired somebody to do ui and they give you something that has 15 diff
 It merges all of the selected ui instances in 1 png image 
 
 ### Supports
-Regular instances
-Images
-Uigradient
-Stroke
-CanvasGroup
-Ui corners
+- Regular instances
+- Images
+- Uigradient
+- Stroke
+- CanvasGroup
+- Ui corners
 
 [Plugin](https://create.roblox.com/store/asset/82981065962105/Gui-Baker)
 
