@@ -1,7 +1,8 @@
 package main
 
 import (
-	"encoding/json"
+	"encoding/json" // ADD THIS
+	"flag"
 	"fmt"
 	"image"
 	"image/color"
@@ -192,9 +193,9 @@ func InterpolateTransparency(transSeq NumberSequence, t float64) float64 {
 }
 
 // ApplyGradientToPixel applies gradient to a pixel based on position
-func ApplyGradientToPixel(baseColor Color3, baseAlpha float64, gradient *UIGradient, x, y, w, h float64) color.RGBA {
+func ApplyGradientToPixel(baseColor Color3, baseTransparency float64, gradient *UIGradient, x, y, w, h float64) color.NRGBA {
 	if gradient == nil || !gradient.Enabled {
-		return Color3ToRGBA(baseColor, baseAlpha)
+		return Color3ToNRGBA(baseColor, baseTransparency)
 	}
 
 	// Calculate gradient position (0 to 1) considering rotation
@@ -215,17 +216,25 @@ func ApplyGradientToPixel(baseColor Color3, baseAlpha float64, gradient *UIGradi
 	gradColor := InterpolateColor(gradient.Color, t)
 	gradTrans := InterpolateTransparency(gradient.Transparency, t)
 
-	// Multiply gradient color with base color
+	// FIXED: Multiply RGB channels directly (no transparency involved here)
 	finalColor := Color3{
 		R: baseColor.R * gradColor.R,
 		G: baseColor.G * gradColor.G,
 		B: baseColor.B * gradColor.B,
 	}
 
-	// Combine transparencies
-	finalAlpha := baseAlpha + gradTrans - (baseAlpha * gradTrans)
+	// FIXED: Combine transparencies properly
+	// Final alpha = base alpha * gradient alpha
+	baseAlpha := 1 - baseTransparency
+	gradAlpha := 1 - gradTrans
+	finalAlpha := baseAlpha * gradAlpha
 
-	return Color3ToRGBA(finalColor, finalAlpha)
+	return color.NRGBA{
+		R: uint8(math.Round(finalColor.R * 255)),
+		G: uint8(math.Round(finalColor.G * 255)),
+		B: uint8(math.Round(finalColor.B * 255)),
+		A: uint8(math.Round(finalAlpha * 255)),
+	}
 }
 
 // CalculateBoundingBox calculates the axis-aligned bounding box of a rotated rectangle
@@ -347,15 +356,26 @@ func Color3ToRGBA(c Color3, alpha float64) color.RGBA {
 	}
 }
 
+// Color3ToNRGBA converts Roblox Color3 to Go color.NRGBA
+func Color3ToNRGBA(c Color3, alpha float64) color.NRGBA {
+	return color.NRGBA{
+		R: uint8(c.R * 255),
+		G: uint8(c.G * 255),
+		B: uint8(c.B * 255),
+		A: uint8((1 - alpha) * 255),
+	}
+}
+
 // ScaleImage scales an image to fit the target dimensions
-func ScaleImage(src image.Image, width, height int) *image.RGBA {
-	dst := image.NewRGBA(image.Rect(0, 0, width, height))
+func ScaleImage(src image.Image, width, height int) *image.NRGBA {
+	dst := image.NewNRGBA(image.Rect(0, 0, width, height))
 	draw.BiLinear.Scale(dst, dst.Bounds(), src, src.Bounds(), draw.Over, nil)
 	return dst
 }
 
 // CreateElementImage creates an unrotated image of the element with stroke
-func CreateElementImage(element GuiElement, assetCache map[string]image.Image) *image.RGBA {
+// CreateElementImage - FIXED VERSION
+func CreateElementImage(element GuiElement, assetCache map[string]image.Image) *image.NRGBA {
 	w := int(element.AbsoluteSize.X)
 	h := int(element.AbsoluteSize.Y)
 
@@ -364,13 +384,12 @@ func CreateElementImage(element GuiElement, assetCache map[string]image.Image) *
 		strokeThickness = element.UIStroke.Thickness
 	}
 
-	// Expand canvas for stroke
 	totalW := int(float64(w) + strokeThickness*2)
 	totalH := int(float64(h) + strokeThickness*2)
 
-	img := image.NewRGBA(image.Rect(0, 0, totalW, totalH))
+	img := image.NewNRGBA(image.Rect(0, 0, totalW, totalH))
 
-	// Draw stroke first (under the content)
+	// Draw stroke
 	if element.UIStroke != nil && element.UIStroke.Enabled {
 		stroke := element.UIStroke
 		strokeColor := stroke.Color
@@ -378,14 +397,11 @@ func CreateElementImage(element GuiElement, assetCache map[string]image.Image) *
 
 		for py := 0; py < totalH; py++ {
 			for px := 0; px < totalW; px++ {
-				// Calculate distance from edge of content rectangle
 				contentX := float64(px) - strokeThickness
 				contentY := float64(py) - strokeThickness
 
-				// Check if pixel is in stroke region
 				inStroke := false
 				if contentX < 0 || contentX >= float64(w) || contentY < 0 || contentY >= float64(h) {
-					// Outside content area - check if within stroke thickness
 					distX := math.Max(0, math.Max(-contentX, contentX-float64(w)))
 					distY := math.Max(0, math.Max(-contentY, contentY-float64(h)))
 					dist := math.Max(distX, distY)
@@ -395,23 +411,22 @@ func CreateElementImage(element GuiElement, assetCache map[string]image.Image) *
 				}
 
 				if inStroke {
-					// Apply gradient if present
 					gradientColor := ApplyGradientToPixel(
 						strokeColor,
 						strokeTrans,
 						stroke.UIGradient,
-						float64(px),
-						float64(py),
-						float64(totalW),
-						float64(totalH),
+						contentX,
+						contentY,
+						float64(w),
+						float64(h),
 					)
-					img.Set(px, py, gradientColor)
+					img.SetNRGBA(px, py, gradientColor)
 				}
 			}
 		}
 	}
 
-	// Draw background if present
+	// Draw background
 	offsetX := int(strokeThickness)
 	offsetY := int(strokeThickness)
 
@@ -430,12 +445,12 @@ func CreateElementImage(element GuiElement, assetCache map[string]image.Image) *
 					float64(w),
 					float64(h),
 				)
-				img.Set(px+offsetX, py+offsetY, pixelColor)
+				img.SetNRGBA(px+offsetX, py+offsetY, pixelColor)
 			}
 		}
 	}
 
-	// Draw image if present
+	// Draw image - REPLACE ALL THE MANUAL BLENDING
 	if element.Image != nil && *element.Image != "" {
 		assetID := ExtractAssetID(*element.Image)
 		if assetID != "" {
@@ -447,25 +462,39 @@ func CreateElementImage(element GuiElement, assetCache map[string]image.Image) *
 					imgColor = *element.ImageColor3
 				}
 
+				imgTrans := 0.0
+				if element.ImageTransparency != nil {
+					imgTrans = *element.ImageTransparency
+				}
+
+				// Create a temporary image for the tinted/gradient image
+				tempImg := image.NewNRGBA(image.Rect(0, 0, w, h))
+
 				for py := 0; py < h; py++ {
 					for px := 0; px < w; px++ {
 						r, g, b, a := scaledImg.At(px, py).RGBA()
 						if a > 0 {
-							// Apply image color tint and gradient
-							baseColor := Color3{
-								R: imgColor.R * float64(r) / 65535.0,
-								G: imgColor.G * float64(g) / 65535.0,
-								B: imgColor.B * float64(b) / 65535.0,
+							// Unpremultiply if needed (RGBA() returns premultiplied 16-bit)
+							srcAlpha := float64(a) / 65535.0
+
+							var srcR, srcG, srcB float64
+							if srcAlpha > 0 {
+								srcR = float64(r) / 65535.0 / srcAlpha
+								srcG = float64(g) / 65535.0 / srcAlpha
+								srcB = float64(b) / 65535.0 / srcAlpha
 							}
 
-							baseAlpha := float64(a) / 65535.0
-							if element.ImageTransparency != nil {
-								baseAlpha *= (1 - *element.ImageTransparency)
+							finalAlpha := srcAlpha * (1 - imgTrans)
+
+							baseColor := Color3{
+								R: imgColor.R * srcR,
+								G: imgColor.G * srcG,
+								B: imgColor.B * srcB,
 							}
 
 							pixelColor := ApplyGradientToPixel(
 								baseColor,
-								1-baseAlpha,
+								1-finalAlpha,
 								element.UIGradient,
 								float64(px),
 								float64(py),
@@ -473,23 +502,14 @@ func CreateElementImage(element GuiElement, assetCache map[string]image.Image) *
 								float64(h),
 							)
 
-							// Blend with existing pixel
-							existing := img.At(px+offsetX, py+offsetY)
-							er, eg, eb, ea := existing.RGBA()
-							pr, pg, pb, pa := pixelColor.RGBA()
-
-							alpha := float64(pa) / 65535.0
-							invAlpha := 1 - alpha
-
-							img.Set(px+offsetX, py+offsetY, color.RGBA{
-								R: uint8((float64(er>>8)*invAlpha + float64(pr>>8)*alpha)),
-								G: uint8((float64(eg>>8)*invAlpha + float64(pg>>8)*alpha)),
-								B: uint8((float64(eb>>8)*invAlpha + float64(pb>>8)*alpha)),
-								A: uint8(math.Min(255, float64(ea>>8)+float64(pa>>8))),
-							})
+							tempImg.SetNRGBA(px, py, pixelColor)
 						}
 					}
 				}
+
+				// Use draw.Draw to composite - let Go handle the blending correctly
+				dstRect := image.Rect(offsetX, offsetY, offsetX+w, offsetY+h)
+				draw.Draw(img, dstRect, tempImg, image.Point{}, draw.Over)
 			}
 		}
 	}
@@ -497,8 +517,59 @@ func CreateElementImage(element GuiElement, assetCache map[string]image.Image) *
 	return img
 }
 
+func SaveChannelDebugImages(img *image.NRGBA, baseName string) error {
+	bounds := img.Bounds()
+	width := bounds.Dx()
+	height := bounds.Dy()
+
+	// Create separate images for each channel
+	rImg := image.NewGray(bounds)
+	gImg := image.NewGray(bounds)
+	bImg := image.NewGray(bounds)
+	aImg := image.NewGray(bounds)
+
+	for y := 0; y < height; y++ {
+		for x := 0; x < width; x++ {
+			r, g, b, a := img.At(x, y).RGBA()
+
+			// Convert 16-bit to 8-bit
+			rImg.SetGray(x, y, color.Gray{Y: uint8(r >> 8)})
+			gImg.SetGray(x, y, color.Gray{Y: uint8(g >> 8)})
+			bImg.SetGray(x, y, color.Gray{Y: uint8(b >> 8)})
+			aImg.SetGray(x, y, color.Gray{Y: uint8(a >> 8)})
+		}
+	}
+
+	// Save each channel
+	channels := map[string]*image.Gray{
+		"_channel_R.png": rImg,
+		"_channel_G.png": gImg,
+		"_channel_B.png": bImg,
+		"_channel_A.png": aImg,
+	}
+
+	for suffix, channelImg := range channels {
+		filename := strings.TrimSuffix(baseName, ".png") + suffix
+		outFile, err := os.Create(filename)
+		if err != nil {
+			return fmt.Errorf("failed to create %s: %w", filename, err)
+		}
+
+		err = png.Encode(outFile, channelImg)
+		outFile.Close()
+
+		if err != nil {
+			return fmt.Errorf("failed to encode %s: %w", filename, err)
+		}
+
+		fmt.Printf("✓ Saved debug channel: %s\n", filename)
+	}
+
+	return nil
+}
+
 // RotateImage rotates an image around its center by the given angle (in degrees)
-func RotateImage(src *image.RGBA, angleDeg float64) *image.RGBA {
+func RotateImage(src *image.NRGBA, angleDeg float64) *image.NRGBA {
 	if angleDeg == 0 {
 		return src
 	}
@@ -513,7 +584,7 @@ func RotateImage(src *image.RGBA, angleDeg float64) *image.RGBA {
 	dstW := int(math.Ceil(srcW*cosA + srcH*sinA))
 	dstH := int(math.Ceil(srcW*sinA + srcH*cosA))
 
-	dst := image.NewRGBA(image.Rect(0, 0, dstW, dstH))
+	dst := image.NewNRGBA(image.Rect(0, 0, dstW, dstH))
 
 	srcCx := srcW / 2
 	srcCy := srcH / 2
@@ -537,26 +608,24 @@ func RotateImage(src *image.RGBA, angleDeg float64) *image.RGBA {
 				fx := srcX - float64(x0)
 				fy := srcY - float64(y0)
 
-				c00 := src.At(x0, y0)
-				c10 := src.At(x1, y0)
-				c01 := src.At(x0, y1)
-				c11 := src.At(x1, y1)
+				// Get 4 corner pixels as straight alpha NRGBA
+				c00 := src.NRGBAAt(x0, y0)
+				c10 := src.NRGBAAt(x1, y0)
+				c01 := src.NRGBAAt(x0, y1)
+				c11 := src.NRGBAAt(x1, y1)
 
-				r00, g00, b00, a00 := c00.RGBA()
-				r10, g10, b10, a10 := c10.RGBA()
-				r01, g01, b01, a01 := c01.RGBA()
-				r11, g11, b11, a11 := c11.RGBA()
+				// Bilinear interpolation on straight alpha values
+				r := (1-fx)*(1-fy)*float64(c00.R) + fx*(1-fy)*float64(c10.R) + (1-fx)*fy*float64(c01.R) + fx*fy*float64(c11.R)
+				g := (1-fx)*(1-fy)*float64(c00.G) + fx*(1-fy)*float64(c10.G) + (1-fx)*fy*float64(c01.G) + fx*fy*float64(c11.G)
+				b := (1-fx)*(1-fy)*float64(c00.B) + fx*(1-fy)*float64(c10.B) + (1-fx)*fy*float64(c01.B) + fx*fy*float64(c11.B)
+				a := (1-fx)*(1-fy)*float64(c00.A) + fx*(1-fy)*float64(c10.A) + (1-fx)*fy*float64(c01.A) + fx*fy*float64(c11.A)
 
-				r := (1-fx)*(1-fy)*float64(r00) + fx*(1-fy)*float64(r10) + (1-fx)*fy*float64(r01) + fx*fy*float64(r11)
-				g := (1-fx)*(1-fy)*float64(g00) + fx*(1-fy)*float64(g10) + (1-fx)*fy*float64(g01) + fx*fy*float64(g11)
-				b := (1-fx)*(1-fy)*float64(b00) + fx*(1-fy)*float64(b10) + (1-fx)*fy*float64(b01) + fx*fy*float64(b11)
-				a := (1-fx)*(1-fy)*float64(a00) + fx*(1-fy)*float64(a10) + (1-fx)*fy*float64(a01) + fx*fy*float64(a11)
-
-				dst.Set(dstX, dstY, color.RGBA{
-					R: uint8(r / 257),
-					G: uint8(g / 257),
-					B: uint8(b / 257),
-					A: uint8(a / 257),
+				// FIXED: Use SetNRGBA and color.NRGBA instead of color.RGBA
+				dst.SetNRGBA(dstX, dstY, color.NRGBA{
+					R: uint8(r + 0.5),
+					G: uint8(g + 0.5),
+					B: uint8(b + 0.5),
+					A: uint8(a + 0.5),
 				})
 			}
 		}
@@ -566,7 +635,7 @@ func RotateImage(src *image.RGBA, angleDeg float64) *image.RGBA {
 }
 
 // DrawElement renders a GUI element onto the canvas
-func DrawElement(canvas *image.RGBA, element GuiElement, bounds BoundingBox, assetCache map[string]image.Image) {
+func DrawElement(canvas *image.NRGBA, element GuiElement, bounds BoundingBox, assetCache map[string]image.Image) {
 	if !element.Visible {
 		return
 	}
@@ -597,7 +666,7 @@ func DrawElement(canvas *image.RGBA, element GuiElement, bounds BoundingBox, ass
 }
 
 // BakeToImage renders all GUI elements to a PNG file
-func BakeToImage(elements []GuiElement, outputPath string, assetDir string) error {
+func BakeToImage(elements []GuiElement, outputPath string, assetDir string) (*image.NRGBA, error) {
 	sort.SliceStable(elements, func(i, j int) bool {
 		return elements[i].ZIndex < elements[j].ZIndex
 	})
@@ -617,7 +686,7 @@ func BakeToImage(elements []GuiElement, outputPath string, assetDir string) erro
 		fmt.Printf("Scaled down to: %dx%d (scale: %.3f)\n", width, height, scale)
 	}
 
-	canvas := image.NewRGBA(image.Rect(0, 0, width, height))
+	canvas := image.NewNRGBA(image.Rect(0, 0, width, height))
 	draw.Draw(canvas, canvas.Bounds(), &image.Uniform{color.Transparent}, image.Point{}, draw.Src)
 
 	assetCache := make(map[string]image.Image)
@@ -657,30 +726,35 @@ func BakeToImage(elements []GuiElement, outputPath string, assetDir string) erro
 
 	outFile, err := os.Create(outputPath)
 	if err != nil {
-		return fmt.Errorf("failed to create output file: %w", err)
+		return nil, fmt.Errorf("failed to create output file: %w", err)
 	}
 	defer outFile.Close()
 
 	err = png.Encode(outFile, canvas)
 	if err != nil {
-		return fmt.Errorf("failed to encode PNG: %w", err)
+		return nil, fmt.Errorf("failed to encode PNG: %w", err)
 	}
 
 	fmt.Printf("\n✓ Baked image saved to: %s\n", outputPath)
-	return nil
+	return canvas, nil
 }
 
 func main() {
-	if len(os.Args) < 2 {
-		fmt.Println("Usage: go run main.go <json_file> [output_dir]")
+	// ADD FLAG PARSING
+	debugFlag := flag.Bool("debug", false, "Save separate R, G, B, A channel images for debugging")
+	flag.Parse()
+
+	args := flag.Args()
+	if len(args) < 1 {
+		fmt.Println("Usage: go run main.go [--debug] <json_file> [output_dir]")
 		os.Exit(1)
 	}
 
-	jsonFile := os.Args[1]
+	jsonFile := args[0]
 	outputDir := "assets"
 
-	if len(os.Args) >= 3 {
-		outputDir = os.Args[2]
+	if len(args) >= 2 {
+		outputDir = args[1]
 	}
 
 	data, err := os.ReadFile(jsonFile)
@@ -717,9 +791,18 @@ func main() {
 	fmt.Printf("\n✓ Downloaded %d unique assets\n\n", len(downloadedAssets))
 
 	outputPath := "baked_gui.png"
-	err = BakeToImage(elements, outputPath, outputDir)
+	canvas, err := BakeToImage(elements, outputPath, outputDir)
 	if err != nil {
 		fmt.Printf("Error baking image: %v\n", err)
 		os.Exit(1)
+	}
+
+	// ADD DEBUG OUTPUT
+	if *debugFlag {
+		fmt.Println("\n🔍 Debug mode: Saving channel images...")
+		err = SaveChannelDebugImages(canvas, outputPath)
+		if err != nil {
+			fmt.Printf("Error saving debug images: %v\n", err)
+		}
 	}
 }

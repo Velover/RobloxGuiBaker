@@ -11,6 +11,7 @@
     "AbsoluteSize": { "Y": 100, "X": 100 },
     "BorderColor3": { "B": 0, "G": 0, "R": 0 },
     "AbsolutePosition": { "Y": 299.0138854980469, "X": 742 },
+    "UICorner": { "CornerRadius": { "Scale": 0, "Offset": 8 } },
     "Rotation": 40,
     "LayoutOrder": 0,
     "Name": "Frame",
@@ -48,6 +49,57 @@
       "Thickness": 3
     },
     "ClassName": "Frame",
+    "BackgroundTransparency": 0,
+    "BackgroundColor3": { "B": 1, "G": 1, "R": 1 }
+  },
+  {
+    "LayoutOrder": 0,
+    "ImageTransparency": 0,
+    "AnchorPoint": { "Y": 0, "X": 0 },
+    "Image": "rbxassetid://15011943540",
+    "ImageRectSize": { "Y": 0, "X": 0 },
+    "ZIndex": 1,
+    "BorderSizePixel": 0,
+    "Size": {
+      "Y": { "Scale": 0, "Offset": 100 },
+      "X": { "Scale": 0, "Offset": 100 }
+    },
+    "ScaleType": "Stretch",
+    "AbsoluteSize": { "Y": 100, "X": 100 },
+    "Visible": true,
+    "ImageColor3": { "B": 1, "G": 1, "R": 1 },
+    "BorderColor3": { "B": 0, "G": 0, "R": 0 },
+    "AbsolutePosition": { "Y": 380.4393615722656, "X": 830.1669311523438 },
+    "Rotation": 0,
+    "ImageRectOffset": { "Y": 0, "X": 0 },
+    "Name": "ImageLabel",
+    "Position": {
+      "Y": { "Scale": 0.057029224932193759, "Offset": 0 },
+      "X": { "Scale": 1.1987907886505128, "Offset": 0 }
+    },
+    "UIGradient": {
+      "Enabled": true,
+      "Transparency": {
+        "Keypoints": [
+          { "Value": 0, "Time": 0, "Envelope": 0 },
+          {
+            "Value": 0.987500011920929,
+            "Time": 0.5049875378608704,
+            "Envelope": 0
+          },
+          { "Value": 0, "Time": 1, "Envelope": 0 }
+        ]
+      },
+      "Color": {
+        "Keypoints": [
+          { "Time": 0, "Value": { "B": 1, "G": 0, "R": 0.6352941393852234 } },
+          { "Time": 1, "Value": { "B": 0, "G": 0.5490196347236633, "R": 1 } }
+        ]
+      },
+      "Offset": { "Y": 0, "X": 0 },
+      "Rotation": 0
+    },
+    "ClassName": "ImageLabel",
     "BackgroundTransparency": 0,
     "BackgroundColor3": { "B": 1, "G": 1, "R": 1 }
   }
