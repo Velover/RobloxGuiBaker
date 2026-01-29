@@ -1,0 +1,54 @@
+[
+  {
+    "Visible": true,
+    "AnchorPoint": { "Y": 0, "X": 0 },
+    "ZIndex": 1,
+    "BorderSizePixel": 0,
+    "Size": {
+      "Y": { "Scale": 0, "Offset": 100 },
+      "X": { "Scale": 0, "Offset": 100 }
+    },
+    "AbsoluteSize": { "Y": 100, "X": 100 },
+    "BorderColor3": { "B": 0, "G": 0, "R": 0 },
+    "AbsolutePosition": { "Y": 299.0138854980469, "X": 742 },
+    "Rotation": 40,
+    "LayoutOrder": 0,
+    "Name": "Frame",
+    "Position": {
+      "Y": { "Scale": 0.4551200866699219, "Offset": 0 },
+      "X": { "Scale": 0.542397677898407, "Offset": 0 }
+    },
+    "UIStroke": {
+      "Enabled": true,
+      "Transparency": 0,
+      "UIGradient": {
+        "Enabled": true,
+        "Transparency": {
+          "Keypoints": [
+            { "Value": 0, "Time": 0, "Envelope": 0 },
+            {
+              "Value": 0.987500011920929,
+              "Time": 0.5049875378608704,
+              "Envelope": 0
+            },
+            { "Value": 0, "Time": 1, "Envelope": 0 }
+          ]
+        },
+        "Color": {
+          "Keypoints": [
+            { "Time": 0, "Value": { "B": 1, "G": 0, "R": 0.6352941393852234 } },
+            { "Time": 1, "Value": { "B": 0, "G": 0.5490196347236633, "R": 1 } }
+          ]
+        },
+        "Offset": { "Y": 0, "X": 0 },
+        "Rotation": 0
+      },
+      "Color": { "B": 1, "G": 1, "R": 1 },
+      "ApplyStrokeMode": "Contextual",
+      "Thickness": 3
+    },
+    "ClassName": "Frame",
+    "BackgroundTransparency": 0,
+    "BackgroundColor3": { "B": 1, "G": 1, "R": 1 }
+  }
+]
