@@ -1,6 +1,35 @@
 [
   {
     "Visible": true,
+    "GroupTransparency": 0,
+    "AbsoluteRotation": 30,
+    "AnchorPoint": { "Y": 0, "X": 0 },
+    "ZIndex": 1,
+    "BorderSizePixel": 0,
+    "Size": {
+      "Y": { "Scale": 0, "Offset": 100 },
+      "X": { "Scale": 0, "Offset": 100 }
+    },
+    "GroupColor3": { "B": 1, "G": 1, "R": 1 },
+    "AbsoluteSize": { "Y": 100, "X": 100 },
+    "Id": "735b4214-3c2b-4af7-b50c-2aee9b6aab35",
+    "AbsolutePosition": { "Y": 278, "X": 613 },
+    "ParentId": "",
+    "Rotation": 30,
+    "LayoutOrder": 0,
+    "Name": "CanvasGroup",
+    "ClassName": "CanvasGroup",
+    "BorderColor3": { "B": 0, "G": 0, "R": 0 },
+    "Position": {
+      "Y": { "Scale": 0.4231354594230652, "Offset": 0 },
+      "X": { "Scale": 0.44809940457344057, "Offset": 0 }
+    },
+    "BackgroundTransparency": 0,
+    "BackgroundColor3": { "B": 1, "G": 1, "R": 1 }
+  },
+  {
+    "Visible": true,
+    "AbsoluteRotation": 70,
     "AnchorPoint": { "Y": 0, "X": 0 },
     "ZIndex": 1,
     "BorderSizePixel": 0,
@@ -9,16 +38,7 @@
       "X": { "Scale": 0, "Offset": 100 }
     },
     "AbsoluteSize": { "Y": 100, "X": 100 },
-    "BorderColor3": { "B": 0, "G": 0, "R": 0 },
-    "AbsolutePosition": { "Y": 299.0138854980469, "X": 742 },
     "UICorner": { "CornerRadius": { "Scale": 0, "Offset": 8 } },
-    "Rotation": 40,
-    "LayoutOrder": 0,
-    "Name": "Frame",
-    "Position": {
-      "Y": { "Scale": 0.4551200866699219, "Offset": 0 },
-      "X": { "Scale": 0.542397677898407, "Offset": 0 }
-    },
     "UIStroke": {
       "Enabled": true,
       "Transparency": 0,
@@ -48,35 +68,41 @@
       "ApplyStrokeMode": "Contextual",
       "Thickness": 3
     },
+    "Id": "63055bc4-604e-4a29-8fea-430b284ef812",
+    "AbsolutePosition": { "Y": 223.6173095703125, "X": 572.806396484375 },
+    "ParentId": "735b4214-3c2b-4af7-b50c-2aee9b6aab35",
+    "Rotation": 40,
+    "LayoutOrder": 0,
+    "Name": "Frame",
     "ClassName": "Frame",
+    "BorderColor3": { "B": 0, "G": 0, "R": 0 },
+    "Position": {
+      "Y": { "Scale": 0, "Offset": -27 },
+      "X": { "Scale": 0, "Offset": -62 }
+    },
     "BackgroundTransparency": 0,
-    "BackgroundColor3": { "B": 1, "G": 1, "R": 1 }
+    "BackgroundColor3": { "B": 0.01568627543747425, "G": 0, "R": 1 }
   },
   {
-    "LayoutOrder": 0,
+    "Visible": true,
     "ImageTransparency": 0,
+    "AbsoluteRotation": 70,
     "AnchorPoint": { "Y": 0, "X": 0 },
     "Image": "rbxassetid://15011943540",
+    "ScaleType": "Stretch",
     "ImageRectSize": { "Y": 0, "X": 0 },
+    "LayoutOrder": 0,
     "ZIndex": 1,
     "BorderSizePixel": 0,
     "Size": {
       "Y": { "Scale": 0, "Offset": 100 },
       "X": { "Scale": 0, "Offset": 100 }
     },
-    "ScaleType": "Stretch",
-    "AbsoluteSize": { "Y": 100, "X": 100 },
-    "Visible": true,
     "ImageColor3": { "B": 1, "G": 1, "R": 1 },
-    "BorderColor3": { "B": 0, "G": 0, "R": 0 },
-    "AbsolutePosition": { "Y": 380.4393615722656, "X": 830.1669311523438 },
-    "Rotation": 0,
-    "ImageRectOffset": { "Y": 0, "X": 0 },
-    "Name": "ImageLabel",
-    "Position": {
-      "Y": { "Scale": 0.057029224932193759, "Offset": 0 },
-      "X": { "Scale": 1.1987907886505128, "Offset": 0 }
-    },
+    "AbsoluteSize": { "Y": 100, "X": 100 },
+    "Id": "2d424697-d130-4048-8348-102768625ac2",
+    "AbsolutePosition": { "Y": 338.21734619140627, "X": 608.4484252929688 },
+    "ParentId": "63055bc4-604e-4a29-8fea-430b284ef812",
     "UIGradient": {
       "Enabled": true,
       "Transparency": {
@@ -99,7 +125,15 @@
       "Offset": { "Y": 0, "X": 0 },
       "Rotation": 0
     },
+    "Rotation": 0,
+    "ImageRectOffset": { "Y": 0, "X": 0 },
+    "Name": "ImageLabel",
     "ClassName": "ImageLabel",
+    "BorderColor3": { "B": 0, "G": 0, "R": 0 },
+    "Position": {
+      "Y": { "Scale": 0.057029224932193759, "Offset": 0 },
+      "X": { "Scale": 1.1987907886505128, "Offset": 0 }
+    },
     "BackgroundTransparency": 0,
     "BackgroundColor3": { "B": 1, "G": 1, "R": 1 }
   }
